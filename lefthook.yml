@@ -1,3 +1,6 @@
+# Fork (FORK.md): no a11y-lens job and no pre-push guard. a11y-lens sends staged files to claude, codex or
+# cursor-agent, and this fork is worked on with pi. The fork's working branch is `main`, which the upstream
+# pre-push guard refuses to push.
 pre-commit:
   parallel: true
   jobs:
@@ -6,16 +9,3 @@ pre-commit:
 
     - name: typecheck
       run: pnpm typecheck
-
-    - name: a11y-lens
-      run: pnpm exec a11y-lens check --staged
-
-pre-push:
-  jobs:
-    - name: no-direct-main-push
-      run: |
-        branch=$(git symbolic-ref HEAD 2>/dev/null | sed 's|refs/heads/||')
-        if [ "$branch" = "main" ]; then
-          echo "Direct push to main is not allowed. Please open a PR."
-          exit 1
-        fi
