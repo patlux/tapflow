@@ -8,7 +8,7 @@ import { existsSync, readFileSync, appendFileSync, readdirSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { confirm, text, isCancel } from '@clack/prompts'
-import { requestAudioPermission, isAudioSupported } from '@tapflowio/ios-agent'
+import { isAudioSupported } from '@tapflowio/ios-agent'
 import { resolveAdb, type DoctorCheck } from './doctor.js'
 import { step } from './print.js'
 import { terminalApprovalDeps } from './approval-prompt.js'
@@ -327,27 +327,14 @@ async function setUpNetFilter(): Promise<SetupStepResult> {
   }
 }
 
-// iOS audio output (on by default) captures the simulator via a Core Audio process tap, which needs a
-// one-time audio-recording TCC grant. `tapflow agent start` also primes it, but offering it here lets
-// the operator grant it during setup. macOS 14.2+. Never fail setup over this opt-in extra.
+// Fork (FORK.md): audio output is opt-in, and the permission primer is gone because it tapped the whole
+// system's audio. Setup asks nothing; it only says how audio is turned on. macOS asks for the
+// audio-capture grant at the first per-process tap. Never fail setup over this opt-in extra.
 async function checkAndFixAudioPermission(): Promise<SetupStepResult> {
   if (!isAudioSupported()) {
     return { label: 'Audio output', ok: true, warn: true, detail: 'Requires macOS 14.2+ — iOS audio output unavailable on this host.' }
   }
-  if (!isInteractive()) {
-    return { label: 'Audio permission', ok: true, warn: true, detail: '`tapflow agent start` will prompt for the audio-capture permission.' }
-  }
-  const proceed = await confirm({ message: 'Grant audio-capture permission now? (audio is on by default; one-time macOS prompt)' })
-  if (isCancel(proceed) || !proceed) {
-    return { label: 'Audio permission', ok: true, warn: true, detail: 'Skipped — `tapflow agent start` will prompt instead.' }
-  }
-  step('A macOS audio-recording prompt will appear — click Allow.')
-  try {
-    requestAudioPermission() // blocks until the prompt is answered (open -W)
-  } catch (e) {
-    return { label: 'Audio permission', ok: true, warn: true, detail: `Could not launch the permission helper (${e instanceof Error ? e.message : String(e)}); audio output may be unavailable.` }
-  }
-  return { label: 'Audio permission requested', ok: true, state: 'created' }
+  return { label: 'Audio output', ok: true, warn: true, detail: 'Off. Set TAPFLOW_AUDIO=on on the agent to stream device audio; macOS asks for the audio-capture permission at the first capture.' }
 }
 
 async function checkAndFixXcode(): Promise<SetupStepResult> {

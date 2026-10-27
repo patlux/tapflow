@@ -2,7 +2,7 @@ import { RelayServer, initDb, config, loadLaunchDefaults, install, configFound, 
 import type { TunnelRuntime } from '@tapflowio/relay'
 import { AgentRegistry } from '@tapflowio/agent-core'
 import path from 'path'
-import { requestAudioPermission, isAudioSupported } from '@tapflowio/ios-agent'
+import '@tapflowio/ios-agent'
 import '@tapflowio/android-agent'
 import { banner, createSpinner, step, warn } from '../lib/print.js'
 import { startConfiguredTunnel, tunnelRuntimeFor } from '../lib/tunnel-runner.js'
@@ -34,13 +34,8 @@ export async function cmdStart(opts: StartOptions): Promise<void> {
     platformsToRun = [explicit]
   }
 
-  // Prime the audio-capture permission (audio is on by default) — shared by iOS capture and Android
-  // host-mute (#341), both via the same signed helper / TCC grant. Non-blocking: if the grant already
-  // exists the helper exits silently; otherwise the operator gets the one-time modal.
-  if ((platformsToRun.includes('ios') || platformsToRun.includes('android')) &&
-      process.env.TAPFLOW_AUDIO !== 'off' && isAudioSupported()) {
-    requestAudioPermission(false)
-  }
+  // Fork (FORK.md): no audio permission priming here. It started a tap over the whole system's audio;
+  // audio is opt-in (TAPFLOW_AUDIO=on), and macOS asks for the grant at the first per-process tap.
 
   // ── 1. Relay setup (always local) ─────────────────────────────────────────
   // The install dir, not the cwd: `start` from anywhere runs this machine's install.

@@ -40,6 +40,15 @@ Every changed place carries a `Fork (FORK.md)` comment, so `rg "Fork \(FORK.md\)
    which answers loopback only, is not reachable; create the first account with
    `TAPFLOW_ADMIN_EMAIL` and `TAPFLOW_ADMIN_PASSWORD` instead.
 
+5. **No audio unless asked for, and never the whole system's audio.** Upstream streams device audio
+   by default and, at every `tapflow agent start` and in `tapflow setup ios`, primes the macOS
+   audio-capture permission with a short global tap over the whole system's audio. The fork makes
+   audio opt-in (`TAPFLOW_AUDIO=on`; unset or anything else is off) on iOS and Android, and removes
+   the primer (`requestAudioPermission`) and all its calls. With audio on, only the simulator's own
+   processes are tapped, and macOS asks for the permission at that first tap. The prebuilt
+   `audiotap-helper.app` still contains the `--request-permission` branch, but nothing in the fork
+   starts it; changing it would mean rebuilding and re-signing the shipped helper.
+
 No protocol message, database schema or CLI flag changed. The only new configuration key is the
 optional `local.host`.
 
@@ -79,6 +88,10 @@ Regression tests for the changes:
 - `packages/dashboard/src/__tests__/QASession.devices.test.tsx`
 - `packages/dashboard/src/__tests__/sidebarDevices.test.tsx`
 - `packages/relay/src/__tests__/listenHost.test.ts`
+- Audio: `packages/audiotap-helper/src/__tests__/index.test.ts`, the opt-in cases in
+  `packages/ios-agent/src/__tests__/IOSAgent.test.ts` and
+  `packages/android-agent/src/__tests__/AndroidAgent.test.ts`, and the setup step in
+  `packages/cli/src/__tests__/lib/setup.test.ts`
 
 Run them as the repository requires, for example `pnpm --filter @tapflowio/dashboard test` and
 `pnpm --filter @tapflowio/relay test`. Never run `npx vitest`.

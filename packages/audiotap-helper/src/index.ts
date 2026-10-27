@@ -111,26 +111,7 @@ export function isAudioSupported(): boolean {
   return maj > 23 || (maj === 23 && min >= 2)
 }
 
-/**
- * Prime the audio-capture TCC grant up front (from `tapflow setup ios` / `tapflow agent start`) so the
- * operator approves it while present — not at first simulator boot, which a headless operator would miss.
- *
- * Runs the helper's --request-permission mode: a global tap whose *capture start* raises the same
- * audio-capture prompt a per-pid tap needs (the grant keys on the app cdhash + service, not the tap
- * shape), so no port/pid/booted simulator is required. The grant isn't readable back, so the caller
- * treats a clean return as "prompt shown / answered" and leaves approve-vs-deny to the operator.
- *
- * `wait` (default true, for `tapflow setup ios`): `open -W` blocks until the modal is answered.
- * `wait=false` (for `tapflow agent start`): fire-and-forget so agent startup isn't blocked — if the
- * grant exists the helper exits silently, otherwise the modal pops for the operator to allow.
- */
-export function requestAudioPermission(wait = true): void {
-  try {
-    const app = ensureHelperApp()
-    const flags = wait ? ['-W', '-n'] : ['-g', '-n']
-    execFileSync('open', [...flags, '-a', app, '--args', '--request-permission'], { stdio: ['ignore', 'ignore', 'ignore'] })
-  } catch (e) {
-    if (wait) throw e // setup wants to surface it; agent-start priming is best-effort (never block startup)
-    logger.warn(`audio permission priming skipped: ${e instanceof Error ? e.message : String(e)}`)
-  }
-}
+// Fork (FORK.md): no permission primer. Upstream's `requestAudioPermission` ran the helper's
+// --request-permission mode, which starts a global tap over the whole system's audio to raise the
+// audio-capture prompt. The fork never taps the whole system: audio is opt-in (TAPFLOW_AUDIO=on), and
+// macOS asks for the grant at the first per-process tap instead.

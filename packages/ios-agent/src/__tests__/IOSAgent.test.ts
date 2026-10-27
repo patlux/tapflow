@@ -3829,11 +3829,12 @@ describe('IOSAgent', () => {
     })
   })
 
-  describe('audio output (whole-sim tap, default-on)', () => {
+  // Fork (FORK.md): audio is opt-in. Only TAPFLOW_AUDIO=on taps the simulator's processes.
+  describe('audio output (whole-sim tap, opt-in)', () => {
     beforeEach(() => {
       MockAudioStreamer.mockClear()
       mockLaunchAudioHelper.mockClear()
-      delete process.env.TAPFLOW_AUDIO
+      process.env.TAPFLOW_AUDIO = 'on'
     })
     afterEach(() => { delete process.env.TAPFLOW_AUDIO })
 
@@ -3858,7 +3859,16 @@ describe('IOSAgent', () => {
       agent.disconnect(); browser.close()
     })
 
-    it('default-on (unset): boot launches the whole-sim tap with the enumerated sim pids', async () => {
+    it('unset: no helper launched at boot (off by default)', async () => {
+      delete process.env.TAPFLOW_AUDIO
+      const { agent, browser } = await bootSession()
+      await new Promise((r) => setTimeout(r, 30)) // give any async audio path a tick to (not) fire
+      expect(MockAudioStreamer).not.toHaveBeenCalled()
+      expect(mockLaunchAudioHelper).not.toHaveBeenCalled()
+      agent.disconnect(); browser.close()
+    })
+
+    it('TAPFLOW_AUDIO=on: boot launches the whole-sim tap with the enumerated sim pids', async () => {
       const { agent, browser } = await bootSession()
       await vi.waitFor(() => expect(mockLaunchAudioHelper).toHaveBeenCalledTimes(1))
       const [appPath, helperPort, pids] = mockLaunchAudioHelper.mock.calls[0]

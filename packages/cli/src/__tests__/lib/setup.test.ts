@@ -590,6 +590,18 @@ describe('runSetupIos', () => {
     expect(findStep(results, 'xcode')?.ok).toBe(true)
   })
 
+  // Fork (FORK.md): audio is opt-in and the primer that tapped the whole system's audio is gone, so a
+  // terminal run asks nothing about audio and only says how to turn it on.
+  it('asks nothing about audio on a terminal run, and says how to turn it on', async () => {
+    setTTY(true)
+    vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin')
+    const messageOf = (o: unknown) => (typeof o === 'object' && o !== null && 'message' in o ? String(o.message) : '')
+
+    const results = await runSetupIos()
+    expect(mockConfirm.mock.calls.some(([opts]) => /audio/i.test(messageOf(opts)))).toBe(false)
+    expect(findStep(results, 'audio output')?.detail).toContain('TAPFLOW_AUDIO=on')
+  })
+
   it.each(NON_INTERACTIVE)('Xcode 미설치 + 비대화형(%s)이면 warn + App Store 링크', async (_shape, notATerminal) => {
     notATerminal()
     mockExistsSync.mockReturnValue(false)
@@ -761,7 +773,8 @@ describe('runSetupIos', () => {
 
     const results = await runSetupIos()
     expect(mockConfirm).not.toHaveBeenCalled()
-    expect(findStep(results, 'audio permission')?.detail).toContain('agent start')
+    // Fork (FORK.md): audio is opt-in, so the step only says how to turn it on.
+    expect(findStep(results, 'audio output')?.detail).toContain('TAPFLOW_AUDIO=on')
     // The step behind it, reported — the half a silent exit 0 swallowed.
     expect(findStep(results, 'network filter')?.ok).toBe(true)
   })

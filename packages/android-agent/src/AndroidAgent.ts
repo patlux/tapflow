@@ -284,7 +284,7 @@ interface DeviceState {
   streamWs: WebSocket | null
   scrcpySession: ScrcpySession | null
   emulatorVideo: EmulatorVideo | null
-  emulatorAudio: AudioStream | null   // gRPC audio stream (on by default; null when TAPFLOW_AUDIO=off)
+  emulatorAudio: AudioStream | null   // gRPC audio stream (fork: null unless TAPFLOW_AUDIO=on)
   audioMuteQemuPid: number | null     // qemu pid silenced by the macOS mute-only tap (#341); null if not muting
   grpcPort: number | null             // gRPC port this device's emulator was launched with; null if we didn't launch it
   grpcClient: EmulatorGrpcClient | null
@@ -1387,12 +1387,12 @@ export class AndroidAgent implements DeviceAgent, NetworkControlCapability {
     throw new PlatformError('No free gRPC port available for the emulator')
   }
 
-  // Audio output is ON by default; opt out with TAPFLOW_AUDIO=off. Gates both emulator launch
+  // Fork (FORK.md): audio output is opt-in; only TAPFLOW_AUDIO=on turns it on. Gates both emulator launch
   // (`-no-audio` removal) and the gRPC streamAudio pump — both must read the same flag so the audio
   // backend matches the stream. Unlike iOS, the emulator also plays to the host (agent Mac) — it has
   // no host-output-only mute, so use the Mac's own volume; see contributing/simulator-audio.md (#341).
   private audioEnabled(): boolean {
-    return process.env.TAPFLOW_AUDIO !== 'off'
+    return process.env.TAPFLOW_AUDIO === 'on'
   }
 
   /**

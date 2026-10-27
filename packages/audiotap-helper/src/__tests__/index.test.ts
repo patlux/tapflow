@@ -17,6 +17,15 @@ describe('launchAudioHelper (iOS capture, per-sim isolation)', () => {
   })
 })
 
+// Fork (FORK.md): no global tap. The permission primer ran a tap over the whole system's audio; the fork
+// removes it, so the only taps left are the per-process ones below.
+describe('no global tap', () => {
+  it('exports no permission primer', async () => {
+    const mod = await import('../index')
+    expect('requestAudioPermission' in mod).toBe(false)
+  })
+})
+
 describe('launchMuteOnlyTap (Android host-mute)', () => {
   it('launches --mute-only with -n and the given pids (no port)', () => {
     mockExecFileSync.mockClear()

@@ -4286,17 +4286,38 @@ describe('AndroidAgent', () => {
     })
 
     // #341: with audio on, mute the emulator's host output on the agent Mac via a mute-only tap.
+    // Fork (FORK.md): audio is opt-in, so this needs TAPFLOW_AUDIO=on.
     it('host-mute: launches a mute-only tap on the emulator pid (audio on, macOS 14.2+)', async () => {
+      process.env.TAPFLOW_AUDIO = 'on'
+      try {
+        vi.mocked(isAudioSupported).mockReturnValue(true)
+        vi.mocked(findEmulatorPid).mockReturnValue(9999)
+        vi.mocked(launchMuteOnlyTap).mockClear()
+        await bootDevice()
+        await vi.waitFor(() => expect(vi.mocked(launchMuteOnlyTap)).toHaveBeenCalledTimes(1))
+        const [appPath, pids] = vi.mocked(launchMuteOnlyTap).mock.calls[0]
+        expect(appPath).toBe('/fake/audiotap-helper.app')
+        expect(pids).toEqual([9999])
+      } finally {
+        delete process.env.TAPFLOW_AUDIO
+        vi.mocked(isAudioSupported).mockReturnValue(false) // restore for the other tests
+        vi.mocked(findEmulatorPid).mockReturnValue(null)
+      }
+    })
+
+    it('host-mute: no tap at all while audio is off, which is the default', async () => {
+      delete process.env.TAPFLOW_AUDIO
       vi.mocked(isAudioSupported).mockReturnValue(true)
       vi.mocked(findEmulatorPid).mockReturnValue(9999)
       vi.mocked(launchMuteOnlyTap).mockClear()
-      await bootDevice()
-      await vi.waitFor(() => expect(vi.mocked(launchMuteOnlyTap)).toHaveBeenCalledTimes(1))
-      const [appPath, pids] = vi.mocked(launchMuteOnlyTap).mock.calls[0]
-      expect(appPath).toBe('/fake/audiotap-helper.app')
-      expect(pids).toEqual([9999])
-      vi.mocked(isAudioSupported).mockReturnValue(false) // restore for the other tests
-      vi.mocked(findEmulatorPid).mockReturnValue(null)
+      try {
+        await bootDevice()
+        await new Promise((r) => setTimeout(r, 30))
+        expect(vi.mocked(launchMuteOnlyTap)).not.toHaveBeenCalled()
+      } finally {
+        vi.mocked(isAudioSupported).mockReturnValue(false)
+        vi.mocked(findEmulatorPid).mockReturnValue(null)
+      }
     })
 
     it('host-mute: skipped below macOS 14.2 (falls back to the Mac volume)', async () => {

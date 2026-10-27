@@ -2328,11 +2328,11 @@ export class IOSAgent implements DeviceAgent, NetworkControlCapability {
   // signed .app (audiotap-helper) launched via LaunchServices so it holds its own audio-recording TCC
   // grant; it streams PCM back over loopback TCP. See AudioCaptureStreamer.
 
-  // Audio output is ON by default (macOS 14.2+); opt out with TAPFLOW_AUDIO=off. The tap is .muted, so
-  // the sim's audio goes only to the browser and the host (agent Mac) stays silent. The grant is
-  // primed at `tapflow agent start`; see contributing/simulator-audio.md.
+  // Fork (FORK.md): audio output is opt-in. Only TAPFLOW_AUDIO=on taps the simulator's processes
+  // (macOS 14.2+). The tap is .muted, so the sim's audio goes only to the browser and the host (agent Mac)
+  // stays silent. macOS asks for the grant at the first tap; see contributing/simulator-audio.md.
   private audioEnabled(): boolean {
-    return process.env.TAPFLOW_AUDIO !== 'off' && isAudioSupported()
+    return process.env.TAPFLOW_AUDIO === 'on' && isAudioSupported()
   }
 
   // Stand up the per-session loopback server the audiotap-helper streams to, pump its frames to the

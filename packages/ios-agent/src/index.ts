@@ -8,9 +8,9 @@ export { SimctlWrapper } from './SimctlWrapper.js'
 export { LeanStore } from './LeanStore.js'
 export { MjpegStreamer } from './MjpegStreamer.js'
 export { KEY_CODE_MAP, MODIFIER_BITS } from './KeyCodeMap.js'
-// Audio-capture TCC priming for `tapflow setup ios` (grant up front, not at first boot).
-// Re-exported from the shared helper package so existing importers (cli) keep working.
-export { requestAudioPermission, isAudioSupported } from '@tapflowio/audiotap-helper'
+// Re-exported from the shared helper package so existing importers (cli) keep working. Fork (FORK.md):
+// the permission primer is gone, because it tapped the whole system's audio.
+export { isAudioSupported } from '@tapflowio/audiotap-helper'
 
 AgentRegistry.register('ios', IOSAgent, {
   canRun: () => process.platform === 'darwin',

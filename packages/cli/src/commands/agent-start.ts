@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { AgentRegistry } from '@tapflowio/agent-core'
 import { config, assertInstallDir } from '@tapflowio/relay'
-import { requestAudioPermission, isAudioSupported } from '@tapflowio/ios-agent'
+import '@tapflowio/ios-agent'
 import '@tapflowio/android-agent'
 import { banner, createSpinner } from '../lib/print.js'
 import { claimAgentSlot, claimPath } from '../lib/agent-singleton.js'
@@ -56,14 +56,8 @@ export async function cmdAgentStart(opts: AgentStartOptions): Promise<void> {
     process.exit(1)
   }
 
-  // Prime the audio-capture permission (audio is on by default) — shared by iOS capture and Android
-  // host-mute (#341), both via the same signed helper / TCC grant. Non-blocking: if the grant already
-  // exists the helper exits silently; otherwise the operator gets the one-time modal. Re-run
-  // `tapflow agent start` to retry if audio is silent. See contributing/simulator-audio.md.
-  if ((platformsToRun.includes('ios') || platformsToRun.includes('android')) &&
-      process.env.TAPFLOW_AUDIO !== 'off' && isAudioSupported()) {
-    requestAudioPermission(false)
-  }
+  // Fork (FORK.md): no audio permission priming here. It started a tap over the whole system's audio;
+  // audio is opt-in (TAPFLOW_AUDIO=on), and macOS asks for the grant at the first per-process tap.
 
   const agents: Array<{ disconnect(): void }> = []
   const claims = new Map<string, () => void>()
