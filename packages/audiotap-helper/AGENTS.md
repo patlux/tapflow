@@ -24,7 +24,7 @@ Both share **one** signed `.app`, so they share **one** audio-capture TCC grant 
 - `ensureHelperApp()` mtime-gates a `swiftc` + `codesign` build and returns the `.app` path; npm ships the prebuilt, ad-hoc-signed `.app` so users need no build.
 - A `.app` (not a bare binary) is required: a process tap returns silence unless the **responsible process** holds the grant, and only a LaunchServices-launched (`open`) bundle becomes its own responsible process. `-n` forces a fresh instance per launch (two sims / a sim + an emulator must not share one helper).
 - `isAudioSupported()` gates on macOS 14.2+ (Darwin 23.2+) — the process-tap minimum.
-- `requestAudioPermission(wait)` primes the grant up front (`tapflow setup ios` blocking, `tapflow agent start` non-blocking).
+- Fork: there is no up-front permission primer. Device audio is opt-in (`TAPFLOW_AUDIO=on`), and the grant is requested only when a stream starts audio.
 
 ## HOW NOT
 
