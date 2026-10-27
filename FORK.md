@@ -7,7 +7,8 @@ people also use for development, so this fork changes the device lifecycle in th
 one relay setting.
 
 Upstream: <https://github.com/jo-duchan/tapflow>, remote `upstream` (push disabled locally).
-Base: upstream `main` at `5ccc6c49` (2026-10-27), 21 commits after `v0.29.0`.
+Fork: <https://github.com/patlux/tapflow>, remote `origin`, branch `main`.
+Last upstream merge: `v0.30.0` (`ef6f9c5e`, 2026-10-27).
 
 ## Changes
 
@@ -54,8 +55,11 @@ optional `local.host`.
 
 ## Known limits
 
-- A device that keeps running keeps its agent capture running. The agents send frames when the
-  screen changes, so an idle screen should cost little. This is not measured yet.
+- A device that keeps running keeps its agent capture running, even with nobody watching. Measured
+  on mmm1 (Mac mini M1, iOS 26.5 simulator, home screen, no viewer): the capture helper used about
+  18 % of one core and the agent about 6 %. Frames are only sent when the screen changes, but the
+  capture itself runs at 30 fps. Stopping the capture while nobody holds a session needs a new
+  relay-to-agent message and is not done yet.
 - Running devices hold their memory. Shut down what is not needed, or the agent's admission
   checks refuse new sessions on that Mac.
 - The upstream docs under `docs/` and the `AGENTS.md` files still describe the upstream lifecycle.
@@ -88,10 +92,20 @@ Environment notes for a workstation:
 - `packages/relay/src/__tests__/runVideos.test.ts` answers `507` when the disk has less than 10 %
   free space, because the relay keeps that space for itself.
 
+## Pilot (2026-10-27)
+
+Relay on mmm1, bound to `127.0.0.1:4000` with the tunnel port `127.0.0.1:4001`, published
+tailnet-only through Tailscale Serve at `https://mmm1.camel-yo.ts.net:4443`. Agents: mmm1 (iOS,
+loopback) and mbpromax (iOS and Android, agent token). Checked over the tailnet with the
+dashboard's WebSocket protocol and a real simulator: central listing of both Macs, boot and video,
+leaving and closing the tab keep the device running past the idle timeout, the shutdown stops it.
+The relay port and the tunnel port are not reachable over the tailnet address or the LAN, and the
+API refuses requests without sign-in.
+
 ## Updating from upstream
 
 ```bash
-git fetch upstream
+git fetch --no-tags upstream
 git merge upstream/main
 rg "Fork \(FORK.md\)"          # every changed place is still there
 pnpm install --frozen-lockfile
@@ -100,4 +114,6 @@ pnpm --filter @tapflowio/relay test
 pnpm --filter @tapflowio/dashboard test
 ```
 
-Use a merge rather than a rebase, so the published history of this fork is never rewritten.
+Use a merge rather than a rebase, so the published history of this fork is never rewritten. Push
+with `git push --no-follow-tags origin main`: with `push.followTags` set, a plain push also sends
+upstream's release tags, and a `v*` tag starts the release workflows of the fork.
