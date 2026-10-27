@@ -63,6 +63,9 @@ const configSchema = z.object({
     trustedProxies: z.array(z.string()),
     // The loopback-only listener tunnel clients are pointed at (see RelayServer). null = not named.
     tunnelPort: z.number().int().min(1).max(65535).nullable(),
+    // Fork (FORK.md): the one address the relay port listens on. null = every interface, dual-stack.
+    // Optional rather than required, so upstream's hand-built configs in tests stay valid.
+    host: z.string().min(1).nullish(),
   }),
   relay: z.object({
     url: z.string().nullable(),
@@ -104,6 +107,7 @@ const DEFAULTS = {
     wsBackpressureBytes: 1_048_576,
     trustedProxies: [],
     tunnelPort: null,
+    host: null,
   },
   relay: {
     url: null,
@@ -314,6 +318,7 @@ function load(): TapflowConfig {
       wsBackpressureBytes: DEFAULTS.local.wsBackpressureBytes,
       trustedProxies: parseTrustedProxies(process.env.TAPFLOW_TRUSTED_PROXIES),
       tunnelPort: file.local?.tunnelPort ?? DEFAULTS.local.tunnelPort,
+      host: file.local?.host || DEFAULTS.local.host,
     },
     relay: {
       url: file.relay?.url || null,
@@ -376,6 +381,7 @@ function load(): TapflowConfig {
 
   if (process.env.TAPFLOW_PORT) cfg.local.port = Number(process.env.TAPFLOW_PORT)
   if (process.env.TAPFLOW_TUNNEL_PORT) cfg.local.tunnelPort = Number(process.env.TAPFLOW_TUNNEL_PORT)
+  if (process.env.TAPFLOW_HOST) cfg.local.host = process.env.TAPFLOW_HOST
   // TAPFLOW_DATA_DIR is already applied above (before the .env load) — it can't be set from .env.
   if (process.env.TAPFLOW_WS_BACKPRESSURE_BYTES) cfg.local.wsBackpressureBytes = Number(process.env.TAPFLOW_WS_BACKPRESSURE_BYTES)
   if (process.env.TAPFLOW_RELAY_URL) cfg.relay.url = process.env.TAPFLOW_RELAY_URL || null

@@ -77,7 +77,9 @@ export async function cmdRelayStart(opts: RelayStartOptions): Promise<void> {
       throw new Error(`The tunnel port (${ports.tunnelPort}) must differ from the relay port. Set TAPFLOW_TUNNEL_PORT to another port.`)
     }
     tunnelPort = ports.tunnelPort
-    await refuseUnlessBindable(port, 'relay')
+    // Fork (FORK.md): probe the address the relay will bind when `local.host` names one.
+    const relayHost = config.local.host ?? undefined
+    await (relayHost === undefined ? refuseUnlessBindable(port, 'relay') : refuseUnlessBindable(port, 'relay', relayHost))
     await refuseUnlessBindable(ports.tunnelPort, 'tunnel', '127.0.0.1')
     const started = await startConfiguredTunnel(tunnelCfg, ports)
     tunnel = started.tunnel
@@ -92,7 +94,7 @@ export async function cmdRelayStart(opts: RelayStartOptions): Promise<void> {
   let server: RelayServer
   try {
     // Construction is inside the try too: a TLS key that does not match its cert throws here.
-    server = new RelayServer({ port, uploadsDir: path.join(config.local.dataDir, 'uploads'), wsBackpressureBytes: config.local.wsBackpressureBytes, trustedProxies: config.local.trustedProxies, corsOrigins: buildCorsOrigins(config, port, tunnelRuntime), tls, tunnel: tunnelRuntime, tunnelPort, launchDefaults })
+    server = new RelayServer({ port, uploadsDir: path.join(config.local.dataDir, 'uploads'), wsBackpressureBytes: config.local.wsBackpressureBytes, trustedProxies: config.local.trustedProxies, corsOrigins: buildCorsOrigins(config, port, tunnelRuntime), tls, tunnel: tunnelRuntime, tunnelPort, launchDefaults, host: config.local.host ?? undefined })
     await server.start()
   } catch (err) {
     await tunnel?.stop()

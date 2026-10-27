@@ -455,7 +455,7 @@ export class RelayServer {
     timer: ReturnType<typeof setTimeout>
   }>()
 
-  constructor(private readonly options: { port: number; publicDir?: string; uploadsDir?: string; idleTimeoutMs?: number; wsBackpressureBytes?: number; screenshotTimeoutMs?: number; uiTreeTimeoutMs?: number; trustedProxies?: string[]; corsOrigins?: string[]; tls?: { cert: string; key: string }; agentGraceMs?: number; pendingBootTtlMs?: number; bootGate?: Partial<GateTiming>; evictionGraceMs?: number; tunnel?: TunnelRuntime; tunnelPort?: number; launchDefaults?: LaunchDefaults }) {
+  constructor(private readonly options: { port: number; publicDir?: string; uploadsDir?: string; idleTimeoutMs?: number; wsBackpressureBytes?: number; screenshotTimeoutMs?: number; uiTreeTimeoutMs?: number; trustedProxies?: string[]; corsOrigins?: string[]; tls?: { cert: string; key: string }; agentGraceMs?: number; pendingBootTtlMs?: number; bootGate?: Partial<GateTiming>; evictionGraceMs?: number; tunnel?: TunnelRuntime; tunnelPort?: number; launchDefaults?: LaunchDefaults; host?: string }) {
     // 0 on both sides is two ephemeral ports, which is what the tests ask for.
     if (options.tunnelPort !== undefined && options.tunnelPort !== 0 && options.tunnelPort === options.port) {
       throw new Error(`The tunnel port (${options.tunnelPort}) must differ from the relay port. Set TAPFLOW_TUNNEL_PORT to another port.`)
@@ -737,7 +737,8 @@ export class RelayServer {
       })
       // Bind dual-stack (IPv4 + IPv6). A bare listen(port) binds IPv6-only on some
       // macOS/node setups, so LAN agents connecting over IPv4 (ws://<ipv4>:port) time out.
-      this.httpServer.listen({ port: this.options.port, host: '::', ipv6Only: false }, () => resolve())
+      // Fork (FORK.md): `host` binds one address instead, for example a tailnet address.
+      this.httpServer.listen({ port: this.options.port, host: this.options.host ?? '::', ipv6Only: false }, () => resolve())
     }).then(() => this.listenTunnel())
   }
 
