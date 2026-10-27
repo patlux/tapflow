@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-10-27
+
 ### Added
 
 - **An app can be launched with launch arguments and environment variables.** A flow writes `launchApp: { arguments: { FIRDebugEnabled: true, apiHost: staging.example.com } }`, and MCP's `launch_app` takes `arguments` and `env`, so a debug switch such as Firebase DebugView or a staging host no longer needs its own build. iOS passes arguments as `-key value`, which the app reads with `UserDefaults`; Android passes them as intent extras typed by value, which the app reads from its intent. `env` sets the app's environment on iOS and fails the step on Android. A launch with either restarts a running app so it reads them. Values the two platforms cannot both carry are refused when the flow loads: fractions, and keys written with iOS's leading `-`. Run records show argument values and mask env values. Upgrade the relay and the agents together with the CLI or MCP server: with an older one the launch fails rather than running without its arguments.
@@ -1101,7 +1103,8 @@ found out by waiting.
 
 - Automatic `tapflow.config.json` creation as a side effect of `tapflow start` / `tapflow relay start`.
 
-[Unreleased]: https://github.com/jo-duchan/tapflow/compare/v0.29.0...HEAD
+[Unreleased]: https://github.com/jo-duchan/tapflow/compare/v0.30.0...HEAD
+[0.30.0]: https://github.com/jo-duchan/tapflow/compare/v0.29.0...v0.30.0
 [0.29.0]: https://github.com/jo-duchan/tapflow/compare/v0.28.1...v0.29.0
 [0.28.1]: https://github.com/jo-duchan/tapflow/compare/v0.28.0...v0.28.1
 [0.28.0]: https://github.com/jo-duchan/tapflow/compare/v0.27.1...v0.28.0
