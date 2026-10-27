@@ -60,6 +60,8 @@ interface AndroidViewerProps {
   onReboot: () => void;
   /** The toolbar's restart button, so `DeviceViewer` can put focus back on it after a restart. */
   restartButtonRef: MutableRefObject<HTMLButtonElement | null>;
+  /** Fork (FORK.md): stop the device, after the toolbar's confirmation. Absent means no control. */
+  onShutdown?: () => void;
   screenWidth?: number;
   screenHeight?: number;
   /** Foldable postures from `device:postures`, already in most-closed→most-open order. */
@@ -78,7 +80,7 @@ export function AndroidViewer({
   deviceReady, installing, installed, installError, bootError, bootWaiting, servicesOff,
   launching, androidButtons,
   binaryFrameHandlerRef, clipboardHandlerRef, clipboardSupported, networkHandlerRef, networkSupported, onRecordingUploaded,
-  rebootPending, onReboot, restartButtonRef,
+  rebootPending, onReboot, restartButtonRef, onShutdown,
   screenWidth, screenHeight, cornerRadius, postures, streamRotation = 0,
   perfHookRef,
 }: AndroidViewerProps) {
@@ -627,6 +629,7 @@ export function AndroidViewer({
         launchSlot={launchSlot}
         network={networkSupported ? { position: network.position, steerable: network.steerable, reason: network.reason, pending: network.pending, onToggle: network.toggle } : undefined}
         reboot={{ pending: rebootPending, onReboot, buttonRef: restartButtonRef }}
+        shutdown={onShutdown ? { onShutdown } : undefined}
       />
 
       <div className="flex items-start gap-8">

@@ -42,24 +42,18 @@ export function useAgentSession(os: string) {
     return () => clearInterval(id)
   }, [connected, send])
 
-  // These three `device:shutdown` sends carry **no `requestId`, on purpose.** Nothing in this hook reads
-  // `device:shutdown-done` — the correlator would be minted for a reply no one is waiting for, and one of
-  // the three fires from unmount teardown, where there is nothing left to resolve. That is safe
-  // permanently rather than for now: the relay originates this message itself, so its correlator is
-  // optional by contract and can never be gated at the door. A consumer that later wants to correlate a
-  // shutdown adds the id at the sender it cares about. See 「Lifecycle correlation」 in protocol/AGENTS.md.
+  // Fork (FORK.md): **leaving a device keeps it running.** Every way out of a device view sends
+  // `session:leave`, which releases the session and keeps the device up, the same as a CI run leaving. The
+  // relay does not count down a dashboard holder either, so a closed tab keeps the device running too. Only
+  // `shutdownDevice` stops a device.
   //
   // Unmount teardown. **A layout effect, so it runs before `useRelay` closes the socket.** React runs passive
   // cleanups in declaration order and `useRelay`'s comes first, so as a `useEffect` this send found the socket
-  // already CLOSING and was dropped: leaving the page left the device running until the relay's idle timeout.
-  // Layout cleanups run during the commit, before any passive one. They also run when React hides the page
-  // (Suspense, Activity), which would shut the device down under a page still shown; nothing hides it today.
+  // already CLOSING and was dropped. Layout cleanups run during the commit, before any passive one.
   useLayoutEffect(() => {
     return () => {
-      const { sessionId, deviceId: dId } = activeSessionRef.current
-      if (sessionId && dId) {
-        send({ type: 'device:shutdown', sessionId, payload: { deviceId: dId } })
-      }
+      const { sessionId } = activeSessionRef.current
+      if (sessionId) send({ type: 'session:leave', sessionId })
     }
   }, [send])
 
@@ -75,32 +69,49 @@ export function useAgentSession(os: string) {
 
   const resetDevice = useCallback(() => setDeviceId(''), [])
 
+  const leaveActiveSession = useCallback(() => {
+    const { sessionId } = activeSessionRef.current
+    if (sessionId) send({ type: 'session:leave', sessionId })
+  }, [send])
+
   const handleBack = useCallback(() => {
-    const { sessionId, deviceId: dId } = activeSessionRef.current
-    if (sessionId && dId) {
-      send({ type: 'device:shutdown', sessionId, payload: { deviceId: dId } })
-    }
+    leaveActiveSession()
     setActiveSessionId(null)
     setBooting(false)
     setStatus('')
-  }, [send])
+  }, [leaveActiveSession])
 
-  const handleBackToMacs = useCallback(() => {
+  /**
+   * Stops the open device and goes back to the device list of the same Mac.
+   *
+   * **No `requestId`, on purpose.** Nothing here waits for `device:shutdown-done`: the view is gone the
+   * moment this returns, and the device list shows the new state on its next refresh. The relay
+   * originates this message itself, so its correlator is optional by contract. See 「Lifecycle
+   * correlation」 in protocol/AGENTS.md.
+   */
+  const shutdownDevice = useCallback(() => {
     const { sessionId, deviceId: dId } = activeSessionRef.current
-    if (sessionId && dId) {
-      send({ type: 'device:shutdown', sessionId, payload: { deviceId: dId } })
-    }
+    if (!sessionId || !dId) return
+    send({ type: 'device:shutdown', sessionId, payload: { deviceId: dId } })
     setActiveSessionId(null)
-    setSelectedAgent(null)
     setBooting(false)
     setStatus('')
     send({ type: 'agents:list' })
   }, [send])
 
+  const handleBackToMacs = useCallback(() => {
+    leaveActiveSession()
+    setActiveSessionId(null)
+    setSelectedAgent(null)
+    setBooting(false)
+    setStatus('')
+    send({ type: 'agents:list' })
+  }, [leaveActiveSession, send])
+
   /**
    * The relay told us the session is gone (the agent went away). Same destination as
    * `handleBackToMacs` but deliberately **not** the same function: there is no session left, so a
-   * `device:shutdown` would be addressed to a sessionId the relay has already dropped. The relay
+   * `session:leave` would be addressed to a sessionId the relay has already dropped. The relay
    * discards it silently (that case has no `else` branch), so nothing breaks — it is simply a
    * message sent about something that no longer exists.
    *
@@ -133,5 +144,6 @@ export function useAgentSession(os: string) {
     handleBack,
     handleBackToMacs,
     handleSessionEnded,
+    shutdownDevice,
   }
 }

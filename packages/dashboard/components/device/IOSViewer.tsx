@@ -69,6 +69,8 @@ interface IOSViewerProps {
   onReboot: () => void;
   /** The toolbar's restart button, so `DeviceViewer` can put focus back on it after a restart. */
   restartButtonRef: MutableRefObject<HTMLButtonElement | null>;
+  /** Fork (FORK.md): stop the device, after the toolbar's confirmation. Absent means no control. */
+  onShutdown?: () => void;
   perfHookRef?: MutableRefObject<PerfHook>;
   /** Told the size the stream arrives at, so a viewer with no chrome from the agent can take the
    *  device's real aspect (see `framelessChrome`). */
@@ -81,7 +83,7 @@ export function IOSViewer({
   launching, chrome, formFactor,
   binaryFrameHandlerRef, clipboardHandlerRef, clipboardSupported, networkHandlerRef, networkSupported, onRecordingUploaded,
   swKeyboardVisible, swKeyboardPending, onKbdToggle,
-  rebootPending, onReboot, restartButtonRef,
+  rebootPending, onReboot, restartButtonRef, onShutdown,
   perfHookRef, onStreamSize,
 }: IOSViewerProps) {
   const { fps, frameCount } = useFps();
@@ -620,6 +622,7 @@ export function IOSViewer({
         launchSlot={launchSlot}
         network={networkSupported ? { position: network.position, steerable: network.steerable, reason: network.reason, pending: network.pending, onToggle: network.toggle } : undefined}
         reboot={{ pending: rebootPending, onReboot, buttonRef: restartButtonRef }}
+        shutdown={onShutdown ? { onShutdown } : undefined}
       />
 
       <div className="flex items-start gap-8">

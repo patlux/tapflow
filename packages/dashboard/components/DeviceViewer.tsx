@@ -42,9 +42,12 @@ interface Props {
    *  the session is alive and another socket holds it, so no protocol reason describes it, and widening
    *  `SessionTerminatedReason` would let `session:terminated` carry a reason it can never mean. */
   onSessionEnded?: (reason: SessionTerminatedReason | 'busy-elsewhere' | 'mac-overloaded') => void;
+  /** Fork (FORK.md): stop the device. Leaving the viewer keeps the device running, so the toolbar offers this
+   *  behind a confirmation. The parent owns it because stopping also ends the view. */
+  onShutdown?: () => void;
 }
 
-export function DeviceViewer({ sessionId, deviceId, formFactor, platform = 'ios', buildId, resetMode, onRecordingUploaded, onSessionEnded }: Props) {
+export function DeviceViewer({ sessionId, deviceId, formFactor, platform = 'ios', buildId, resetMode, onRecordingUploaded, onSessionEnded, onShutdown }: Props) {
   const sendRef = useRef<(msg: BrowserToRelay) => void>(() => {});
   // One reset per mount; see the boot handler below.
   const resetSentRef = useRef(false);
@@ -723,6 +726,7 @@ export function DeviceViewer({ sessionId, deviceId, formFactor, platform = 'ios'
     swKeyboardVisible, swKeyboardPending, onKbdToggle,
     rebootPending, onReboot: reboot,
     restartButtonRef,
+    onShutdown,
   };
 
   // Before chrome arrives, show a phone skeleton + status card so the layout isn't empty

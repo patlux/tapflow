@@ -1,6 +1,8 @@
-// The unmount teardown against the real `useRelay`, not a mock: what decides whether the shutdown is sent is the
+// The unmount teardown against the real `useRelay`, not a mock: what decides whether the leave is sent is the
 // order of the two hooks' cleanups, and a mocked `useRelay` has no socket to close first. With the mock, the
-// sibling test in useQASessionHooks.test.tsx passed while the shutdown never left the browser.
+// sibling test in useQASessionHooks.test.tsx passed while the message never left the browser.
+//
+// Fork (FORK.md): leaving the page releases the session and keeps the device running.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useAgentSession } from '@/hooks/useAgentSession'
@@ -30,7 +32,10 @@ const device: DeviceSummary = {
 }
 
 describe('useAgentSession — leaving the page', () => {
-  it('sends device:shutdown before its socket closes', () => {
+  const sentType = (socket: FakeSocket, type: string) =>
+    socket.sent.some((m) => typeof m === 'object' && m !== null && 'type' in m && m.type === type)
+
+  it('sends session:leave before its socket closes, and no device:shutdown', () => {
     const { result, unmount } = renderHook(() => useAgentSession('android'))
     const socket = FakeSocket.last!
     act(() => socket.open())
@@ -38,7 +43,8 @@ describe('useAgentSession — leaving the page', () => {
 
     unmount()
 
-    expect(socket.sent).toContainEqual({ type: 'device:shutdown', sessionId: 'sess-1', payload: { deviceId: 'avd:Pixel_7' } })
+    expect(socket.sent).toContainEqual({ type: 'session:leave', sessionId: 'sess-1' })
+    expect(sentType(socket, 'device:shutdown')).toBe(false)
     expect(socket.readyState).toBe(FakeSocket.CLOSING)
   })
 
@@ -47,6 +53,7 @@ describe('useAgentSession — leaving the page', () => {
     const socket = FakeSocket.last!
     act(() => socket.open())
     unmount()
-    expect(socket.sent.some((m) => (m as { type: string }).type === 'device:shutdown')).toBe(false)
+    expect(sentType(socket, 'session:leave')).toBe(false)
+    expect(sentType(socket, 'device:shutdown')).toBe(false)
   })
 })

@@ -161,7 +161,8 @@ describe('useAgentSession', () => {
   // This and the `session:joined` case above call `handleMessage` directly, so they pin the handler's
   // contract and **not** that either message reaches this hook. L5d measured that it does not: `error` and
   // `session:joined` are both sent with `sendTo(ws, …)` to the socket that sent `session:start`, and this
-  // hook's socket only ever sends `agents:list` and `device:shutdown`. `inboundDisposition` records that.
+  // hook's socket only ever sends `agents:list`, `session:leave` and `device:shutdown`. `inboundDisposition`
+  // records that.
   //
   // `sessionId` here is arbitrary — the handler does not read it — and required only because L5d made
   // `error` an addressed reply. That the compiler asked for it at all is what surfaced the reachability
@@ -176,7 +177,10 @@ describe('useAgentSession', () => {
     expect(result.current.status).toBe('Error: boom')
   })
 
-  it('sends device:shutdown and resets state on handleBack', async () => {
+  // Fork (FORK.md): leaving a device keeps it running. Only `shutdownDevice` stops it.
+  const sentShutdown = () => mockSend.mock.calls.some(([msg]) => msg?.type === 'device:shutdown')
+
+  it('leaves the session, keeps the device running and resets state on handleBack', async () => {
     const { result } = renderHook(() => useAgentSession('android'))
     const device = makeDevice({ id: 'avd:Pixel_7', sessionId: 'sess-1' })
 
@@ -186,17 +190,14 @@ describe('useAgentSession', () => {
 
     act(() => result.current.handleBack())
 
-    expect(mockSend).toHaveBeenCalledWith({
-      type: 'device:shutdown',
-      sessionId: 'sess-1',
-      payload: { deviceId: 'avd:Pixel_7' },
-    })
+    expect(mockSend).toHaveBeenCalledWith({ type: 'session:leave', sessionId: 'sess-1' })
+    expect(sentShutdown()).toBe(false)
     expect(result.current.activeSessionId).toBeNull()
     expect(result.current.booting).toBe(false)
     expect(result.current.status).toBe('')
   })
 
-  it('sends device:shutdown and clears selectedAgent on handleBackToMacs', async () => {
+  it('leaves the session, keeps the device running and clears selectedAgent on handleBackToMacs', async () => {
     const { result } = renderHook(() => useAgentSession('android'))
     const device = makeDevice({ id: 'avd:Pixel_7', sessionId: 'sess-1' })
 
@@ -206,18 +207,15 @@ describe('useAgentSession', () => {
 
     act(() => result.current.handleBackToMacs())
 
-    expect(mockSend).toHaveBeenCalledWith({
-      type: 'device:shutdown',
-      sessionId: 'sess-1',
-      payload: { deviceId: 'avd:Pixel_7' },
-    })
+    expect(mockSend).toHaveBeenCalledWith({ type: 'session:leave', sessionId: 'sess-1' })
+    expect(sentShutdown()).toBe(false)
     expect(result.current.activeSessionId).toBeNull()
     expect(result.current.selectedAgent).toBeNull()
   })
 
-  // Only that the hook calls `send` on unmount: `useRelay` is mocked here, so this passed while the shutdown never
+  // Only that the hook calls `send` on unmount: `useRelay` is mocked here, so this passed while the message never
   // reached the socket. Whether it does is useAgentSession.unmount.test.tsx.
-  it('sends device:shutdown on unmount when a session is active', async () => {
+  it('leaves the session on unmount and keeps the device running', async () => {
     const { result, unmount } = renderHook(() => useAgentSession('android'))
     const device = makeDevice({ id: 'avd:Pixel_7', sessionId: 'sess-1' })
 
@@ -226,11 +224,34 @@ describe('useAgentSession', () => {
 
     unmount()
 
+    expect(mockSend).toHaveBeenCalledWith({ type: 'session:leave', sessionId: 'sess-1' })
+    expect(sentShutdown()).toBe(false)
+  })
+
+  it('shuts the device down on request and returns to the device list of the same Mac', async () => {
+    const { result } = renderHook(() => useAgentSession('android'))
+    const device = makeDevice({ id: 'avd:Pixel_7', sessionId: 'sess-1' })
+
+    act(() => result.current.setSelectedAgent('mac-1'))
+    act(() => result.current.startDevice(device))
+    await act(async () => {})
+
+    act(() => result.current.shutdownDevice())
+
     expect(mockSend).toHaveBeenCalledWith({
       type: 'device:shutdown',
       sessionId: 'sess-1',
       payload: { deviceId: 'avd:Pixel_7' },
     })
+    expect(result.current.activeSessionId).toBeNull()
+    expect(result.current.selectedAgent).toBe('mac-1')
+    expect(result.current.booting).toBe(false)
+  })
+
+  it('sends nothing for shutdownDevice when no device is open', () => {
+    const { result } = renderHook(() => useAgentSession('android'))
+    act(() => result.current.shutdownDevice())
+    expect(sentShutdown()).toBe(false)
   })
 })
 

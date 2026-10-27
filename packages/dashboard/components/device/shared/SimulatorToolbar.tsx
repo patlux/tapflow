@@ -1,6 +1,6 @@
 'use client';
 
-import { Camera, FoldHorizontal, Link2, Loader2, Radio, RadioOff, RefreshCw, RotateCw, Square, UnfoldHorizontal, Video } from 'lucide-react';
+import { Camera, FoldHorizontal, Link2, Loader2, PowerOff, Radio, RadioOff, RefreshCw, RotateCw, Square, UnfoldHorizontal, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import type { MutableRefObject, ReactNode } from 'react';
 import type { NetworkUnavailableReason } from '@tapflowio/protocol';
 import { Kbd, KbdGroup } from '@/components/ui/kbd';
@@ -79,6 +79,12 @@ interface SimulatorToolbarProps {
    * comes back; `DeviceViewer` puts them on this button again once it returns.
    */
   reboot?: { pending: boolean; onReboot: () => void; buttonRef?: MutableRefObject<HTMLButtonElement | null> };
+  /**
+   * Fork (FORK.md): shut the device down. Leaving a device keeps it running, so this is the one way a
+   * tester stops it. Rendered **after the restart, at the end of the Device group**, because it ends the
+   * session as well. `onShutdown` is called only after the tester confirms, the same as the restart.
+   */
+  shutdown?: { onShutdown: () => void };
 }
 
 export interface NetworkControl {
@@ -354,6 +360,7 @@ export function SimulatorToolbar({
   launchSlot,
   network,
   reboot,
+  shutdown,
 }: SimulatorToolbarProps) {
   // Per instance, not a literal: this component takes all its state through props and is rendered per
   // device viewer, so two toolbars on screen would point both buttons' `aria-describedby` at the first
@@ -367,6 +374,9 @@ export function SimulatorToolbar({
   // wrapped by a `TooltipTrigger asChild` — two libraries cloning the same child and both wanting to
   // own its ref and its handlers. `BuildRow` drives its dialog the same way.
   const [confirmingReboot, setConfirmingReboot] = useState(false);
+  const [confirmingShutdown, setConfirmingShutdown] = useState(false);
+  // Opened by state, so Radix has no trigger to give focus back to when the dialog is dismissed.
+  const shutdownButtonRef = useRef<HTMLButtonElement | null>(null);
   if (!joined) return null;
 
   return (
@@ -565,6 +575,26 @@ export function SimulatorToolbar({
           );
         })()}
 
+        {shutdown && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              {/* `PowerOff`, not `Power`: Android's own power key uses `Power` in this same group, and that
+                  key only blanks the screen. One string for the name and the tooltip, as for the restart. */}
+              <Button
+                ref={shutdownButtonRef}
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                aria-label="Shut down the device"
+                onClick={() => setConfirmingShutdown(true)}
+              >
+                <PowerOff className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left">Shut down the device</TooltipContent>
+          </Tooltip>
+        )}
+
         </div>
 
         {/* ── Capture: take the current state out of the session ───────────────── */}
@@ -750,6 +780,35 @@ export function SimulatorToolbar({
                 }}
               >
                 Restart
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+      {shutdown && (
+        <AlertDialog open={confirmingShutdown} onOpenChange={setConfirmingShutdown}>
+          <AlertDialogContent
+            onCloseAutoFocus={(e) => {
+              e.preventDefault();
+              shutdownButtonRef.current?.focus();
+            }}
+          >
+            <AlertDialogHeader>
+              <AlertDialogTitle>Shut down this device?</AlertDialogTitle>
+              <AlertDialogDescription>
+                The device stops, and anything open on it closes. Its apps and data stay. You can start it
+                again from the device list.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  setConfirmingShutdown(false);
+                  shutdown.onShutdown();
+                }}
+              >
+                Shut down
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
