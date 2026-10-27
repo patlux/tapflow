@@ -1442,7 +1442,11 @@ export class RelayServer {
       // stray timer per relay before this loop and is one per held session after it.
       if (this.stopping) return
       for (const held of this.sessions.getByBrowserSocket(ws)) {
-        this.sessions.clearBrowser(held.id, () => this.idleShutdown(held.id))
+        // Fork (FORK.md): a person's dashboard tab going away leaves the device running, and the device stops
+        // only when somebody asks. Every other holder keeps the countdown, because the relay counts and
+        // reclaims the devices automation starts. Read before `clearBrowser`, which forgets the holder.
+        const countDown = held.holderKind !== 'dashboard'
+        this.sessions.clearBrowser(held.id, countDown ? () => this.idleShutdown(held.id) : undefined)
         // Spent, as on a leave: the countdown just started is the one it would have handed back.
         held.idleResumeOnLeave = false
         this.tellWatchers(held.id, { type: 'watch:holder-left', sessionId: held.id })
