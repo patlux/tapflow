@@ -43,6 +43,9 @@ export function App() {
           <Route index element={<Navigate to="/app-center" replace />} />
           <Route path="/app-center" element={<AppCenter />} />
           <Route path="/app-center/build" element={<QASession />} />
+          {/* Fork (FORK.md): the same page without a build. Keyed so moving between the two remounts it,
+              which releases an open device on the way. */}
+          <Route path="/devices" element={<QASession key="devices" />} />
           <Route path="/automation/runs" element={<Runs />} />
           <Route path="/automation/runs/:runId" element={<RunDetail />} />
           <Route path="/automation/sessions/:sessionId" element={<AISessionWatch />} />

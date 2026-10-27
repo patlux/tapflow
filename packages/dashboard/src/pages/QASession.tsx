@@ -7,6 +7,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useBreadcrumb } from '@/hooks/useBreadcrumb';
 import { useBuildLoader } from '@/hooks/useBuildLoader';
 import { useAgentSession } from '@/hooks/useAgentSession';
+import { useFocusAfterSwap } from '@/hooks/useFocusAfterSwap';
 import { useDeviceSelector } from '@/hooks/useDeviceSelector';
 import { DeviceViewer } from '@/components/DeviceViewer';
 import { SessionPanel } from '@/components/SessionPanel';
@@ -19,6 +20,7 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Breadcrumb, BreadcrumbItem, BreadcrumbLink,
   BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator,
@@ -68,20 +70,31 @@ const SESSION_ENDED_NOTICE: Record<ViewerStoppedReason, { title: string; descrip
 };
 
 export function QASession() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const buildId = searchParams.get('id');
 
   const { build } = useBuildLoader(buildId);
   const queryClient = useQueryClient();
 
-  const os = build?.platform ?? 'ios';
+  // Fork (FORK.md): without a build this is the Devices page, and `?platform=` picks the platform instead.
+  const os = build?.platform ?? (searchParams.get('platform') === 'android' ? 'android' : 'ios');
   const {
     sessions, activeFormFactor, selectedAgent, setSelectedAgent,
     activeSessionId, deviceId, booting, status,
     connected, agentGroups,
-    startDevice, resetDevice, handleBack, handleBackToMacs, handleSessionEnded,
+    startDevice, resetDevice, handleBack, handleBackToMacs, handleSessionEnded, shutdownDevice,
   } = useAgentSession(os);
+
+  // A Mac picked for one platform may have no device of the other, so a switch goes back to the Macs.
+  const choosePlatform = useCallback((platform: string) => {
+    setSelectedAgent(null);
+    setSearchParams(platform === 'android' ? { platform: 'android' } : {}, { replace: true });
+  }, [setSearchParams, setSelectedAgent]);
+
+  // Fork (FORK.md): shutting a device down swaps the viewer for the device list in one commit, which drops the
+  // focus the confirmation had on `body`. This puts it on the first control of the new view instead.
+  const viewRegion = useFocusAfterSwap<HTMLDivElement>(activeSessionId ? 'device' : selectedAgent ? 'devices' : 'macs');
 
   const selectedSession = agentGroups.find((s) => s.agentName === selectedAgent);
   const {
@@ -178,11 +191,55 @@ export function QASession() {
     return () => setBreadcrumb(null);
   }, [build, selectedAgent, activeSessionId, deviceLabel, navigate, handleBack, handleBackToMacs, setBreadcrumb]);
 
+  // Fork (FORK.md): the Devices page has no build, so its breadcrumb starts at "Devices". It is the way back,
+  // as on the build page.
+  useEffect(() => {
+    if (buildId) return;
+    setBreadcrumb(
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            {selectedAgent ? (
+              <BreadcrumbLink asChild>
+                <button onClick={handleBackToMacs}>Devices</button>
+              </BreadcrumbLink>
+            ) : (
+              <BreadcrumbPage>Devices</BreadcrumbPage>
+            )}
+          </BreadcrumbItem>
+          {selectedAgent && (
+            <>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                {activeSessionId ? (
+                  <BreadcrumbLink asChild>
+                    <button onClick={handleBack}>{selectedAgent}</button>
+                  </BreadcrumbLink>
+                ) : (
+                  <BreadcrumbPage>{selectedAgent}</BreadcrumbPage>
+                )}
+              </BreadcrumbItem>
+            </>
+          )}
+          {activeSessionId && (
+            <>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>{deviceLabel}</BreadcrumbPage>
+              </BreadcrumbItem>
+            </>
+          )}
+        </BreadcrumbList>
+      </Breadcrumb>
+    );
+    return () => setBreadcrumb(null);
+  }, [buildId, selectedAgent, activeSessionId, deviceLabel, handleBack, handleBackToMacs, setBreadcrumb]);
+
   return (
     <div className="flex h-full min-h-0 gap-6 p-6">
       <div className="flex flex-col gap-3 flex-1 min-w-0 min-h-0">
         {/* -ml-1 pl-1: 좌측 ring 클리핑 방지 / -mr-4 pr-4: 스크롤바 마진 영역으로 분리 */}
-        <div className="flex-1 min-h-0 overflow-auto -ml-1 pl-1 -mr-4 pr-4">
+        <div {...viewRegion} className="flex-1 min-h-0 overflow-auto -ml-1 pl-1 -mr-4 pr-4">
           {activeSessionId ? (
             <div className="min-h-full flex items-center justify-center py-6 px-8 min-w-max">
               <DeviceViewer
@@ -194,6 +251,7 @@ export function QASession() {
                 resetMode={appliedResetMode}
                 onRecordingUploaded={handleRecordingUploaded}
                 onSessionEnded={onSessionEnded}
+                onShutdown={shutdownDevice}
               />
             </div>
           ) : selectedAgent ? (
@@ -232,7 +290,9 @@ export function QASession() {
                     owes the user a reason, and the only channel here is the tooltip — which does
                     not reach touch at all. Showing nothing beats showing a switch that erases
                     nothing and cannot say why. */}
-                {fullResetSupported && (
+                {/* Fork (FORK.md): not on the Devices page. Without a build under test the erase would only
+                    wipe a device somebody else may be working on. */}
+                {fullResetSupported && buildId !== null && (
                   <TooltipProvider>
                     <Tooltip>
                       {/* The whole control is the trigger, not the label alone: a label cannot take
@@ -323,7 +383,17 @@ export function QASession() {
             </div>
           ) : (
             <div className="flex flex-col gap-5">
-              <h1 className="text-xl font-semibold tracking-tight">Select Mac</h1>
+              <div className="flex items-center justify-between gap-3">
+                <h1 className="text-xl font-semibold tracking-tight">Select Mac</h1>
+                {buildId === null && (
+                  <Tabs value={os} onValueChange={choosePlatform}>
+                    <TabsList aria-label="Platform">
+                      <TabsTrigger value="ios">{PLATFORM_LABEL.ios}</TabsTrigger>
+                      <TabsTrigger value="android">{PLATFORM_LABEL.android}</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                )}
+              </div>
 
               {agentGroups.length === 0 ? (
                 <p className="text-sm text-muted-foreground">

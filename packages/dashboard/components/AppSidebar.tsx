@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useEffect } from 'react'
 import { useTheme } from 'next-themes'
-import { LayoutGrid, LogOut, Settings, Users, KeyRound, Monitor, BookOpen, SquarePlay } from 'lucide-react'
+import { LayoutGrid, LogOut, Settings, Users, KeyRound, Monitor, BookOpen, SquarePlay, Smartphone } from 'lucide-react'
 import {
   Sidebar,
   SidebarContent,
@@ -32,6 +32,8 @@ const FLOW_RUNS_HREF = '/automation/runs'
 
 const navItems = [
   { label: 'App Center', href: '/app-center', icon: LayoutGrid },
+  // Fork (FORK.md): every device of every Mac, without a build.
+  { label: 'Devices', href: '/devices', icon: Smartphone },
   { label: 'Flow Runs', href: FLOW_RUNS_HREF, icon: SquarePlay },
   { label: 'Mac Resources', href: '/mac-resources', icon: Monitor },
 ]
